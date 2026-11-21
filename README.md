@@ -68,6 +68,8 @@ Use the **Research** tab, right-click a packet and choose **SmartShark > Researc
 - **See exactly what was sent.** Each answer has a collapsed **Sent to the AI** section with the text the model received, placeholders included. The rest of the panel shows the real addresses.
 - Change your mind about online IP lookups, or make SmartShark ask again about cloud providers, from the same **Privacy** settings.
 
+![SmartShark Settings with Anthropic Claude selected and the Privacy group](docs/images/settings.jpg)
+
 ### Providers
 
 | Provider | Runs | Needs an API key |
