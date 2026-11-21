@@ -104,8 +104,16 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
     masking_->setToolTip(QStringLiteral(
         "The AI sees placeholders such as MAC-1 and HOST-1 instead; the panel shows the real addresses. Covers MAC "
         "addresses in the forms Wireshark writes them, and the public addresses on this computer's network adapters "
-        "(behind a home router, your public IPv4 address is usually the router's, so it is not covered). Other "
+        "(behind a home router, your public IPv4 address is usually the router's: add it below). Other "
         "addresses help the AI and identify no one. Check the \"Sent to the AI\" section to see what went out."));
+    alsoHide_ = new QLineEdit(this);
+    alsoHide_->setMaxLength(2000);
+    alsoHide_->setPlaceholderText(QStringLiteral("e.g. your router's public IP"));
+    alsoHide_->setToolTip(QStringLiteral(
+        "More IP addresses to hide, separated by commas. Behind a home router your public IPv4 address belongs to "
+        "the router, so SmartShark can't see it on this computer. Your router's status page shows it, or search "
+        "\"what is my IP\" in a browser."));
+    connect(masking_, &QCheckBox::toggled, alsoHide_, &QWidget::setEnabled);
     lookups_ = new QComboBox(this);
     lookups_->addItem(QStringLiteral("Ask first"), static_cast<int>(Settings::OnlineLookups::Ask));
     lookups_->addItem(QStringLiteral("Always"), static_cast<int>(Settings::OnlineLookups::Always));
@@ -120,8 +128,8 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
     });
 
     auto *privacyNote = new QLabel(QStringLiteral(
-        "Local servers keep packet data on your computer. Before packet data first goes to a cloud "
-        "provider, SmartShark asks."), this);
+        "Servers on your computer or local network keep packet data with you. Before packet data first goes "
+        "to a cloud provider, SmartShark asks."), this);
     privacyNote->setWordWrap(true);
     auto *forgetRow = new QHBoxLayout;
     forgetRow->addWidget(forgetApprovals_);
@@ -133,6 +141,7 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
     privacyForm->addRow(QStringLiteral("Packet fields sent:"), treeChars_);
     privacyForm->addRow(QStringLiteral("Payload sent:"), payloadBytes_);
     privacyForm->addRow(masking_);
+    privacyForm->addRow(QStringLiteral("Also hide:"), alsoHide_);
     privacyForm->addRow(QStringLiteral("Online IP lookups:"), lookups_);
     privacyForm->addRow(forgetRow);
 
@@ -166,6 +175,8 @@ void SettingsDialog::load()
     treeChars_->setValue(settings_.maxTreeChars);
     payloadBytes_->setValue(settings_.payloadBytes);
     masking_->setChecked(settings_.masking != AddressMasking::Off);
+    alsoHide_->setText(settings_.alsoHide.join(QStringLiteral(", ")));
+    alsoHide_->setEnabled(masking_->isChecked());
     lookups_->setCurrentIndex(qMax(0, lookups_->findData(static_cast<int>(settings_.onlineLookups))));
     updateForgetButton();
     shownProvider_.clear();
@@ -302,6 +313,15 @@ bool SettingsDialog::save()
     settings_.maxTreeChars = treeChars_->value();
     settings_.payloadBytes = payloadBytes_->value();
     settings_.masking = masking_->isChecked() ? AddressMasking::Mine : AddressMasking::Off;
+    QString bad;
+    settings_.alsoHide = Settings::parseAddressList(alsoHide_->text(), &bad);
+    if (!bad.isEmpty()) {
+        setStatus(QStringLiteral("\"%1\" under Also hide is not an IP address. Enter addresses such as 203.0.113.7, "
+                                 "separated by commas.")
+                      .arg(bad.left(60)),
+                  true);
+        return false;
+    }
     settings_.onlineLookups = static_cast<Settings::OnlineLookups>(lookups_->currentData().toInt());
 
     for (auto it = keyCache_.cbegin(); it != keyCache_.cend(); ++it) {

@@ -5,6 +5,7 @@
 
 #include "core/settings.h"
 
+#include <QRegularExpression>
 #include <QSettings>
 
 namespace smartshark {
@@ -21,6 +22,23 @@ ProviderConfig Settings::activeConfig() const
     cfg.baseUrl = !ps.baseUrl.trimmed().isEmpty() ? ps.baseUrl.trimmed() : (preset ? preset->baseUrl : QString());
     cfg.model = ps.model.trimmed();
     return cfg;
+}
+
+QStringList Settings::parseAddressList(const QString &text, QString *bad)
+{
+    QStringList out;
+    static const QRegularExpression separators(QStringLiteral("[,;\\s]+"));
+    for (const QString &part : text.split(separators, Qt::SkipEmptyParts)) {
+        const QString n = normaliseAddress(part);
+        if (n.isEmpty()) {
+            if (bad && bad->isEmpty())
+                *bad = part;
+            continue;
+        }
+        if (!out.contains(n) && out.size() < 50)
+            out.append(n);
+    }
+    return out;
 }
 
 QString Settings::baseUrlFor(const QString &id) const
@@ -66,6 +84,7 @@ Settings Settings::load(const QString &iniPath)
     const QString mask = ini.value(QStringLiteral("privacy/mask_addresses")).toString().toLower();
     if (mask == QLatin1String("mine") || mask == QLatin1String("true") || mask == QLatin1String("all"))
         s.masking = AddressMasking::Mine; // "true" and "all": earlier 3e builds
+    s.alsoHide = parseAddressList(ini.value(QStringLiteral("privacy/also_hide")).toStringList().join(QLatin1Char(',')));
     for (const QString &k : ini.value(QStringLiteral("privacy/cloud_approved")).toStringList()) {
         if (!k.trimmed().isEmpty() && !s.cloudApproved.contains(k.trimmed()))
             s.cloudApproved.append(k.trimmed());
@@ -99,6 +118,7 @@ bool Settings::save(const QString &iniPath) const
     ini.setValue(QStringLiteral("privacy/mask_addresses"),
                  masking == AddressMasking::Off ? QStringLiteral("off") : QStringLiteral("mine"));
     ini.remove(QStringLiteral("privacy/my_addresses")); // field of an earlier 3e build
+    ini.setValue(QStringLiteral("privacy/also_hide"), alsoHide);
     ini.setValue(QStringLiteral("privacy/cloud_approved"), cloudApproved);
     for (auto it = perProvider.cbegin(); it != perProvider.cend(); ++it) {
         ini.beginGroup(QStringLiteral("provider.") + it.key());

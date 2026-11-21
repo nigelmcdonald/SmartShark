@@ -92,9 +92,9 @@ void CloudConsent::ask(const Settings &settings, const QString &whatIsSent, std:
     const QString masking =
         settings.masking == AddressMasking::Off
             ? QStringLiteral("IP and MAC addresses are sent as they are. You can hide your own addresses in Settings.")
-            : QStringLiteral("MAC addresses and this computer's public IP addresses (those on its network "
-                             "adapters) are replaced with placeholders such as MAC-1 before sending. Host names "
-                             "are still sent.");
+            : QStringLiteral("MAC addresses, this computer's public IP addresses (those on its network "
+                             "adapters) and any addresses you added in Settings are replaced with placeholders "
+                             "such as MAC-1 before sending. Host names are still sent.");
     const QString unencrypted =
         QUrl(cfg.baseUrl.trimmed()).scheme() == QLatin1String("http")
             ? QStringLiteral("<br><b>This address uses http, so the data travels unencrypted</b> and anyone on the "
@@ -127,9 +127,20 @@ QStringList localPublicAddresses()
     return out;
 }
 
+// This computer's public adapter addresses plus the ones the user added.
+static QStringList addressesToHide(const Settings &settings)
+{
+    QStringList out = localPublicAddresses();
+    for (const QString &a : settings.alsoHide) {
+        if (!out.contains(a))
+            out.append(a);
+    }
+    return out;
+}
+
 QStringList ownAddressesToSkip(const Settings &settings)
 {
-    return settings.masking == AddressMasking::Off ? QStringList() : localPublicAddresses();
+    return settings.masking == AddressMasking::Off ? QStringList() : addressesToHide(settings);
 }
 
 bool hidingSwitchedOn(bool conversationMasked, const Settings &settings)
@@ -150,7 +161,7 @@ bool setUpMasker(AddressMasker *masker, const Settings &settings)
     masker->clear();
     if (settings.masking == AddressMasking::Off)
         return false;
-    masker->setScope(settings.masking, localPublicAddresses());
+    masker->setScope(settings.masking, addressesToHide(settings));
     return true;
 }
 

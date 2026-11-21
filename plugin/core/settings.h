@@ -38,6 +38,13 @@ struct Settings {
     int maxTreeChars = kDefaultTreeChars; // dissection text sent per packet
     int payloadBytes = kDefaultPayloadBytes; // decoded payload bytes sent per packet; 0 sends none
     AddressMasking masking = AddressMasking::Off; // Off or Mine: hide MAC addresses and this computer's public IPs
+    // More addresses to hide when masking is on, typed by the user: usually
+    // the router's public IP, which no adapter of this computer carries.
+    QStringList alsoHide;
+
+    // Parse a comma- or space-separated list of IP addresses. Returns the
+    // normalised addresses; *bad receives the first entry that is not one.
+    static QStringList parseAddressList(const QString &text, QString *bad = nullptr);
     // Cloud servers the user agreed to send packet data to (cloudApprovalKey()).
     QStringList cloudApproved;
 

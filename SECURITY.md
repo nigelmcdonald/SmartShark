@@ -24,7 +24,7 @@ Nothing is sent until you use a SmartShark feature. Then:
 
 - With a server on your own computer (LM Studio, Ollama and similar), packet data stays on your computer. A server elsewhere on your local network receives it over your network.
 - Before packet data first goes to a server outside your computer and local network, SmartShark asks, once per provider and server, and lists what will be sent. It warns if the address uses unencrypted `http://`.
-- In **Tools > SmartShark > Settings > Privacy** you can send fewer packet fields, send no payload, and hide MAC addresses and this computer's public IP addresses behind placeholders such as `MAC-1` and `HOST-1`. The panel's **Sent to the AI** section shows the packet or capture message exactly as sent.
+- In **Tools > SmartShark > Settings > Privacy** you can send fewer packet fields, send no payload, and hide MAC addresses, this computer's public IP addresses and any addresses you add (such as your router's public IP) behind placeholders such as `MAC-1` and `HOST-1`. The panel's **Sent to the AI** section shows the packet or capture message exactly as sent.
 - What the provider does with the data is governed by its own terms.
 
 ## Risks we designed against
@@ -49,7 +49,7 @@ Nothing is sent until you use a SmartShark feature. Then:
 | 1 | Medium | A link title in AI output became a rich-text tooltip that could load a file from a network path on mouse-over, which on Windows can leak your login hash | Tooltips are stripped and tooltip events refused in every panel view. Regression test added |
 | 2 | Medium | Address hiding missed Wireshark's short MAC forms for small vendor blocks (`Maker_1:23:45`, `Maker_1:23`) and MACs written without separators | All short forms are recognised; a device already seen is also hidden in bare (`0800274e66a1`) and hex-dump forms. Tests added |
 | 3 | Low | Turning on address hiding mid-conversation didn't apply to follow-ups, although the consent text said it did | Follow-ups are refused until the conversation is restarted with hiding on |
-| 4 | Low | "My public IP" covers only addresses on this computer's adapters; reverse-DNS and ISP-style names and online lookups could still reveal your own address | Own addresses are also hidden in `in-addr.arpa` and dashed host names, and are not looked up online while hiding is on. The NAT limit is now stated in Settings and the README |
+| 4 | Low | "My public IP" covers only addresses on this computer's adapters; reverse-DNS and ISP-style names and online lookups could still reveal your own address | Own addresses are also hidden in `in-addr.arpa` and dashed host names, and are not looked up online while hiding is on. A new **Also hide** box in Settings covers your router's public IP, which no adapter carries |
 | 5 | Low | A crafted source URL could add a second, misleading link to the Sources list | Brackets and parentheses in link targets are percent-encoded. Regression test added |
 | 6 | Low | A hostile server could slow Wireshark down: no reply cap on the Anthropic path, slow text handling, uncapped error text and filter length | Reply cap on every path, faster text handling, error text shortened to 500 characters, filters over 4,000 characters rejected before compiling, list sizes capped |
 | 7 | Low | A saved API key followed the provider, not the server, so changing a server address could send the key to a new host | Keys are tied to their server; SmartShark asks before sending a saved key elsewhere. Tests added |
@@ -64,7 +64,7 @@ The reviewer also checked, and found sound: API key storage and handling, TLS (Q
 ## Known limits
 
 - **Prompt injection cannot be ruled out.** A packet crafted by an attacker might make the model give a wrong verdict or misleading advice. The model has no tools that can act on your computer, it cannot open links or start lookups, and its web searches go to Anthropic, not to an attacker. Still, treat answers about suspicious traffic as a second opinion, not proof.
-- **Your router's public IP is not hidden.** Behind a home router your public IPv4 address belongs to the router, not your computer, so address hiding doesn't know it. It may appear in some traffic (for example STUN or UPnP replies).
+- **Your router's public IP is only hidden if you add it.** Behind a home router your public IPv4 address belongs to the router, not your computer, so SmartShark can't detect it. Type it into **Also hide** in Settings; it may otherwise appear in some traffic (for example STUN or UPnP replies).
 - **Host names are sent**, including names Wireshark resolved, unless they contain one of your hidden addresses.
 - **Raw payload bytes** can contain an address in a form SmartShark doesn't recognise.
 - **A research turn** can make up to three requests of up to 10 minutes each when Claude pauses a long search.

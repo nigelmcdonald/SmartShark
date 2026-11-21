@@ -61,6 +61,7 @@ private:
     QSpinBox *treeChars_;
     QSpinBox *payloadBytes_;
     QCheckBox *masking_;
+    QLineEdit *alsoHide_;
     QComboBox *lookups_;
     QPushButton *forgetApprovals_;
     QLabel *status_;

@@ -119,6 +119,7 @@ private slots:
     void maskerUnmask();
     void maskerMineScope();
     void apiKeyBoundToHost();
+    void alsoHideAddresses();
     void maskerShortAndBareMacForms();
     void maskerOwnAddressInNames();
     void localServerDetection_data();
@@ -1107,6 +1108,29 @@ void CoreTests::apiKeyBoundToHost()
     const QString ini = dir.filePath(QStringLiteral("smartshark.ini"));
     QVERIFY(s.save(ini));
     QCOMPARE(Settings::load(ini).perProvider.value(QStringLiteral("custom")).keyHost, QStringLiteral("a.example"));
+}
+
+void CoreTests::alsoHideAddresses()
+{
+    QString bad;
+    QCOMPARE(Settings::parseAddressList(QStringLiteral(" 203.0.113.7, 2001:DB8::1;203.0.113.7  198.51.100.2"), &bad),
+             (QStringList{QStringLiteral("203.0.113.7"), QStringLiteral("2001:db8::1"), QStringLiteral("198.51.100.2")}));
+    QVERIFY(bad.isEmpty());
+    Settings::parseAddressList(QStringLiteral("203.0.113.7, myrouter"), &bad);
+    QCOMPARE(bad, QStringLiteral("myrouter"));
+
+    Settings s;
+    s.alsoHide = {QStringLiteral("203.0.113.7"), QStringLiteral("198.51.100.2")};
+    QTemporaryDir dir;
+    const QString ini = dir.filePath(QStringLiteral("smartshark.ini"));
+    QVERIFY(s.save(ini));
+    QCOMPARE(Settings::load(ini).alsoHide, s.alsoHide);
+
+    // An added address is hidden like this computer's own.
+    AddressMasker m;
+    m.setScope(AddressMasking::Mine, s.alsoHide);
+    QCOMPARE(m.mask(QStringLiteral("STUN mapped address 203.0.113.7, peer 8.8.8.8")),
+             QStringLiteral("STUN mapped address HOST-1, peer 8.8.8.8"));
 }
 
 void CoreTests::maskerShortAndBareMacForms()
