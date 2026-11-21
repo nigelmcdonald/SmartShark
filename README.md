@@ -160,6 +160,9 @@ scripts\install.cmd       copy the plugin into your Wireshark plugin folder
 
 - **Done:** version 0.1.0, the first release, with a prebuilt download for Wireshark 4.6 and a [security review](SECURITY.md).
 - **Next:** builds for new Wireshark versions as they come out, and fixes for problems people report. Ideas and bug reports are welcome on the [issue tracker](https://github.com/nigelmcdonald/SmartShark/issues).
+- **Planned for a future version:**
+  - **Selected packets:** select several packets in the packet list (for example a handshake, or a request and its reply) and have the AI explain them together, with each packet's full detail.
+  - **Web research with other providers:** only if it can work without extra setup, such as installing a separate search engine.
 
 ## Authorship
 
