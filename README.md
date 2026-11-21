@@ -6,7 +6,7 @@ SmartShark is a free, open-source plugin for [Wireshark](https://www.wireshark.o
 
 ![SmartShark explaining an encrypted packet in its side panel](docs/images/explain-packet.jpg)
 
-> **Status:** all features below work and have been tested in Wireshark 4.6.0 on Windows. There is no prebuilt release yet, so for now you have to build it from source.
+> **Status:** version 0.1.0, the first release. All features below work and have been tested in Wireshark 4.6.0 on Windows. [Download it](https://github.com/nigelmcdonald/SmartShark/releases) and see [Installation](#installation).
 
 ## Features
 
@@ -90,7 +90,26 @@ With Claude, if Anthropic's safety checks decline a request (this can happen wit
 
 ## Installation
 
-Prebuilt releases are not available yet. This section will cover downloading the plugin, which Wireshark version it needs, and where to put it. Until then, see [Building from source](#building-from-source).
+**You need:** 64-bit Windows 10 or 11 and **Wireshark 4.6** (64-bit, from [wireshark.org](https://www.wireshark.org/download.html)). SmartShark is built for and tested with Wireshark 4.6.0. It should also work with later 4.6.x updates, but it will not load in Wireshark 4.4 or 4.8. To check your version, open Wireshark and go to **Help > About Wireshark**.
+
+1. **Download** `SmartShark-0.1.0-win64-wireshark-4.6.zip` from the [Releases page](https://github.com/nigelmcdonald/SmartShark/releases). Only download SmartShark from there: a Wireshark plugin runs with Wireshark's full rights.
+2. **Optional but recommended: check the download.** In PowerShell, run `Get-FileHash .\SmartShark-0.1.0-win64-wireshark-4.6.zip` in the folder where you saved it, and compare the result with the SHA-256 checksum on the release page. They must match exactly.
+3. **Unzip it.** You get `smartshark.dll`, `LICENSE` and `INSTALL.txt`.
+4. **Close Wireshark** if it is open.
+5. **Open your personal plugin folder.** In File Explorer, click the address bar, type `%APPDATA%\Wireshark\plugins\4.6\epan` and press Enter. If Windows says the folder doesn't exist, create it: go to `%APPDATA%\Wireshark` and make the folders `plugins`, then `4.6` inside it, then `epan` inside that. (No administrator rights are needed.)
+6. **Copy `smartshark.dll` into that folder.**
+7. **Start Wireshark.** The **Tools** menu now has a **SmartShark** submenu. To double-check, go to **Help > About Wireshark > Plugins** and look for `smartshark.dll`.
+
+Then follow the [Quick start](#quick-start).
+
+**If something goes wrong:**
+
+- *No SmartShark menu:* check that the file is in exactly `%APPDATA%\Wireshark\plugins\4.6\epan` (not in a subfolder), and that you restarted Wireshark.
+- *Wireshark shows an error about loading `smartshark.dll`:* your Wireshark is not version 4.6. Install Wireshark 4.6, or wait for a SmartShark release that matches your version.
+- *To update SmartShark:* close Wireshark and replace `smartshark.dll` with the new one.
+- *To remove SmartShark:* close Wireshark and delete `smartshark.dll`. To also remove its settings, delete `smartshark.ini` from `%APPDATA%\Wireshark`, and its API keys from **Windows Credential Manager > Windows Credentials** (entries starting with `SmartShark/`).
+
+Prefer to build it yourself? See [Building from source](#building-from-source).
 
 ## Quick start
 
@@ -99,7 +118,9 @@ Prebuilt releases are not available yet. This section will cover downloading the
 3. Click **Fetch models**, pick a model, and click **Save**.
 4. Open a capture, go to **Tools > SmartShark > Generate Display Filter**, describe what you want to see, and press Enter.
 5. Click **Apply Filter**.
-6. Right-click any packet and choose **SmartShark > Explain This Packet**.
+6. Right-click any packet and choose **SmartShark > Explain This Packet**. Ask follow-up questions in the box at the bottom of the panel.
+7. Open the panel's **Capture** tab and click **Summarize** for an overview of the displayed packets.
+8. With Anthropic Claude as your provider, open the **Research** tab and click **Packet** to have Claude look up anything unusual on the web.
 
 ## Privacy and security
 
@@ -137,7 +158,8 @@ scripts\install.cmd       copy the plugin into your Wireshark plugin folder
 
 ## Roadmap
 
-- **Next:** a first release with a prebuilt download and an install guide.
+- **Done:** version 0.1.0, the first release, with a prebuilt download for Wireshark 4.6 and a [security review](SECURITY.md).
+- **Next:** builds for new Wireshark versions as they come out, and fixes for problems people report. Ideas and bug reports are welcome on the [issue tracker](https://github.com/nigelmcdonald/SmartShark/issues).
 
 ## Authorship
 
