@@ -1,0 +1,94 @@
+/* settings.cpp
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+#include "core/settings.h"
+
+#include <QSettings>
+
+namespace smartshark {
+
+ProviderConfig Settings::activeConfig() const
+{
+    ProviderConfig cfg;
+    cfg.providerId = providerId;
+    cfg.timeoutSec = timeoutSec;
+    const ProviderPreset *preset = findPreset(providerId);
+    if (preset)
+        cfg.api = preset->api;
+    const ProviderSettings ps = perProvider.value(providerId);
+    cfg.baseUrl = !ps.baseUrl.trimmed().isEmpty() ? ps.baseUrl.trimmed() : (preset ? preset->baseUrl : QString());
+    cfg.model = ps.model.trimmed();
+    return cfg;
+}
+
+Settings Settings::load(const QString &iniPath)
+{
+    Settings s;
+    QSettings ini(iniPath, QSettings::IniFormat);
+    const QString provider = ini.value(QStringLiteral("general/provider")).toString();
+    if (findPreset(provider))
+        s.providerId = provider;
+    const int timeout = ini.value(QStringLiteral("general/timeout_sec"), s.timeoutSec).toInt();
+    if (timeout >= 5 && timeout <= 1800)
+        s.timeoutSec = timeout;
+    const QString lookups = ini.value(QStringLiteral("general/online_ip_lookups")).toString();
+    if (lookups == QLatin1String("always"))
+        s.onlineLookups = OnlineLookups::Always;
+    else if (lookups == QLatin1String("never"))
+        s.onlineLookups = OnlineLookups::Never;
+
+    const int tree = ini.value(QStringLiteral("privacy/max_tree_chars"), s.maxTreeChars).toInt();
+    if (tree >= kMinTreeChars && tree <= kMaxTreeChars)
+        s.maxTreeChars = tree;
+    const int payload = ini.value(QStringLiteral("privacy/payload_bytes"), s.payloadBytes).toInt();
+    if (payload >= 0 && payload <= kMaxPayloadBytes)
+        s.payloadBytes = payload;
+    const QString mask = ini.value(QStringLiteral("privacy/mask_addresses")).toString().toLower();
+    if (mask == QLatin1String("mine") || mask == QLatin1String("true") || mask == QLatin1String("all"))
+        s.masking = AddressMasking::Mine; // "true" and "all": earlier 3e builds
+    for (const QString &k : ini.value(QStringLiteral("privacy/cloud_approved")).toStringList()) {
+        if (!k.trimmed().isEmpty() && !s.cloudApproved.contains(k.trimmed()))
+            s.cloudApproved.append(k.trimmed());
+    }
+
+    for (const ProviderPreset &p : providerPresets()) {
+        ini.beginGroup(QStringLiteral("provider.") + p.id);
+        ProviderSettings ps;
+        ps.baseUrl = ini.value(QStringLiteral("base_url")).toString();
+        ps.model = ini.value(QStringLiteral("model")).toString();
+        ini.endGroup();
+        if (!ps.baseUrl.isEmpty() || !ps.model.isEmpty())
+            s.perProvider.insert(p.id, ps);
+    }
+
+    return s;
+}
+
+bool Settings::save(const QString &iniPath) const
+{
+    QSettings ini(iniPath, QSettings::IniFormat);
+    ini.setValue(QStringLiteral("general/provider"), providerId);
+    ini.setValue(QStringLiteral("general/timeout_sec"), timeoutSec);
+    ini.setValue(QStringLiteral("general/online_ip_lookups"),
+                 onlineLookups == OnlineLookups::Always  ? QStringLiteral("always")
+                 : onlineLookups == OnlineLookups::Never ? QStringLiteral("never")
+                                                         : QStringLiteral("ask"));
+    ini.setValue(QStringLiteral("privacy/max_tree_chars"), maxTreeChars);
+    ini.setValue(QStringLiteral("privacy/payload_bytes"), payloadBytes);
+    ini.setValue(QStringLiteral("privacy/mask_addresses"),
+                 masking == AddressMasking::Off ? QStringLiteral("off") : QStringLiteral("mine"));
+    ini.remove(QStringLiteral("privacy/my_addresses")); // field of an earlier 3e build
+    ini.setValue(QStringLiteral("privacy/cloud_approved"), cloudApproved);
+    for (auto it = perProvider.cbegin(); it != perProvider.cend(); ++it) {
+        ini.beginGroup(QStringLiteral("provider.") + it.key());
+        ini.setValue(QStringLiteral("base_url"), it.value().baseUrl);
+        ini.setValue(QStringLiteral("model"), it.value().model);
+        ini.endGroup();
+    }
+    ini.sync();
+    return ini.status() == QSettings::NoError;
+}
+
+} // namespace smartshark

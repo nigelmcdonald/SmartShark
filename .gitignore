@@ -1,0 +1,27 @@
+# Unlicensed reference code: never commit or redistribute
+reference/
+
+# Build output
+build/
+out/
+*.dll
+*.pdb
+*.obj
+*.lib
+*.exp
+*.ilk
+
+# IDE and local settings
+.vs/
+.vscode/
+CMakeUserPresets.json
+.claude/settings.local.json
+
+# Original, unredacted screenshots: publish only the redacted copies in docs/images/
+/*.jpg
+/*.JPG
+/*.png
+/*.PNG
+
+# Local working notes for Claude Code (not published)
+CLAUDE.md
