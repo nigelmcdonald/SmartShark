@@ -20,6 +20,7 @@ namespace smartshark {
 struct ProviderSettings {
     QString baseUrl; // empty means the preset's default
     QString model;
+    QString keyHost; // the server host the stored API key was saved for
 };
 
 struct Settings {
@@ -42,6 +43,14 @@ struct Settings {
 
     // Connection settings for the active provider. apiKey is left empty.
     ProviderConfig activeConfig() const;
+
+    // The base URL a provider uses: its override, or the preset's default.
+    QString baseUrlFor(const QString &providerId) const;
+
+    // True if the stored API key for this provider may be sent to baseUrl:
+    // the key was saved for that server's host. A key saved before hosts
+    // were recorded counts as saved for the preset's default server.
+    bool keyMayBeSentTo(const QString &providerId, const QString &baseUrl) const;
 
     static Settings load(const QString &iniPath);
     bool save(const QString &iniPath) const;

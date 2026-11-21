@@ -115,6 +115,25 @@ bool isWebUrl(const QString &url)
            (u.scheme() == QLatin1String("https") || u.scheme() == QLatin1String("http"));
 }
 
+QString sourceLinkTarget(const QString &url)
+{
+    const QString encoded = QString::fromLatin1(QUrl(url.trimmed()).toEncoded());
+    QString out;
+    for (const QChar c : encoded) {
+        switch (c.unicode()) {
+        case '(': out += QStringLiteral("%28"); break;
+        case ')': out += QStringLiteral("%29"); break;
+        case '[': out += QStringLiteral("%5B"); break;
+        case ']': out += QStringLiteral("%5D"); break;
+        case '<': out += QStringLiteral("%3C"); break;
+        case '>': out += QStringLiteral("%3E"); break;
+        case ' ': out += QStringLiteral("%20"); break;
+        default: out += c;
+        }
+    }
+    return out;
+}
+
 namespace {
 
 QString escapeLinkText(QString text)
@@ -145,7 +164,7 @@ QString sourcesMarkdown(const QList<anthropic::WebSource> &cited, const QList<an
         const QString title = s.title.trimmed().isEmpty() ? u.host() : s.title;
         md += QStringLiteral("%1. [%2](%3) (%4%5)\n")
                   .arg(++n)
-                  .arg(escapeLinkText(title), QString::fromLatin1(u.toEncoded()), escapeLinkText(u.host()),
+                  .arg(escapeLinkText(title), sourceLinkTarget(s.url), escapeLinkText(u.host()),
                        s.pageAge.isEmpty() ? QString() : QStringLiteral(", ") + escapeLinkText(s.pageAge));
     };
 

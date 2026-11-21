@@ -1,5 +1,6 @@
-# Unit tests for SmartShark's Wireshark-independent code (plugin/core).
-# Needs only Qt, not a Wireshark build. Run with scripts\test.cmd.
+# Unit tests for SmartShark's Wireshark-independent code (plugin/core) and
+# the panel's Markdown view. Needs only Qt, not a Wireshark build. Run with
+# scripts\test.cmd.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -34,5 +35,22 @@ add_executable(core_tests
 target_include_directories(core_tests PRIVATE ${CORE_DIR})
 target_link_libraries(core_tests PRIVATE Qt6::Core Qt6::Network Qt6::Test)
 
+# The panel's Markdown view (Qt Widgets, run offscreen).
+find_package(Qt6 REQUIRED COMPONENTS Gui Widgets)
+add_executable(ui_tests
+	test_ui.cpp
+	${CORE_DIR}/ui/collapsible_section.cpp
+	${CORE_DIR}/core/research.cpp
+	${CORE_DIR}/core/input_guard.cpp
+	${CORE_DIR}/core/anthropic_backend.cpp
+	${CORE_DIR}/core/http_backend.cpp
+	${CORE_DIR}/core/openai_compat.cpp
+	${CORE_DIR}/core/provider.cpp
+	${CORE_DIR}/core/sse.cpp
+)
+target_include_directories(ui_tests PRIVATE ${CORE_DIR})
+target_link_libraries(ui_tests PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Test)
+
 enable_testing()
 add_test(NAME core_tests COMMAND core_tests)
+add_test(NAME ui_tests COMMAND ui_tests)

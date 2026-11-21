@@ -30,8 +30,10 @@ public:
 
     // Look up every public address in facts and call done with the updated
     // list. Private addresses pass through unchanged. done runs once, unless
-    // cancel() is called or the object is destroyed first.
-    void lookup(const QList<IpFacts> &facts, std::function<void(const QList<IpFacts> &)> done);
+    // cancel() is called or the object is destroyed first. Addresses in skip
+    // are not looked up (this computer's own, when address hiding is on).
+    void lookup(const QList<IpFacts> &facts, std::function<void(const QList<IpFacts> &)> done,
+                const QStringList &skip = {});
     void cancel();
 
 private:

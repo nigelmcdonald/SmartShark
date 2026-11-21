@@ -26,6 +26,11 @@ public:
     explicit SafeMarkdownView(QWidget *parent = nullptr);
     void setSafeMarkdown(const QString &markdown);
     QVariant loadResource(int type, const QUrl &name) override;
+    bool hasToolTips() const; // for tests: true if any text carries a tooltip
+
+protected:
+    bool event(QEvent *e) override;
+    bool viewportEvent(QEvent *e) override;
 
 private:
     void fitHeight();

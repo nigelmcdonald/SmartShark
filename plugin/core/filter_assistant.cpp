@@ -7,6 +7,7 @@
 
 #include "core/input_guard.h"
 
+#include <QHash>
 #include <QRegularExpression>
 
 namespace smartshark {
@@ -109,9 +110,14 @@ static SuggestedFilter splitSuggestion(const QString &text)
 // "TRY:", "**TRY**:", "- TRY -" and so on. Returns the text after the tag.
 static bool takeTag(const QString &line, const QString &tag, QString *rest)
 {
-    const QRegularExpression re(QStringLiteral("^[\\s*_#>-]*") + tag + QStringLiteral("[\\s*_]*(?::|-)[\\s*_]*(.*)$"),
-                                QRegularExpression::CaseInsensitiveOption);
-    const QRegularExpressionMatch m = re.match(line);
+    // One compiled expression per tag, not per line.
+    static QHash<QString, QRegularExpression> cache;
+    auto it = cache.find(tag);
+    if (it == cache.end())
+        it = cache.insert(tag, QRegularExpression(QStringLiteral("^[\\s*_#>-]*") + tag +
+                                                      QStringLiteral("[\\s*_]*(?::|-)[\\s*_]*(.*)$"),
+                                                  QRegularExpression::CaseInsensitiveOption));
+    const QRegularExpressionMatch m = it->match(line);
     if (!m.hasMatch())
         return false;
     *rest = m.captured(1).trimmed();
@@ -216,8 +222,18 @@ struct FilterAssistant::Run {
 };
 
 FilterAssistant::FilterAssistant(ChatBackend *backend, FilterValidator validator, int maxRepairs)
-    : backend_(backend), validator_(std::move(validator)), maxRepairs_(maxRepairs)
+    : backend_(backend), maxRepairs_(maxRepairs)
 {
+    // The model writes the filters; refuse absurdly long ones before they
+    // reach Wireshark's compiler.
+    validator_ = [inner = std::move(validator)](const QString &filter, QString *error) {
+        if (filter.size() > guard::kMaxFilterChars) {
+            if (error)
+                *error = QStringLiteral("The filter is longer than %1 characters.").arg(guard::kMaxFilterChars);
+            return false;
+        }
+        return inner(filter, error);
+    };
 }
 
 void FilterAssistant::cancel()

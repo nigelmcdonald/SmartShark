@@ -109,7 +109,7 @@ ResearchPanel::ResearchPanel(QWidget *parent) : QWidget(parent)
     sources_ = new CollapsibleSection(QStringLiteral("Sources"));
     sources_->setLinkHandler([this](const QUrl &url) {
         // Only pages that came from the search results, never links in the AI's text.
-        const QString u = QString::fromLatin1(url.toEncoded());
+        const QString u = sourceLinkTarget(QString::fromLatin1(url.toEncoded()));
         if (openableUrls_.contains(u) && isWebUrl(u))
             QDesktopServices::openUrl(url);
     });
@@ -383,7 +383,13 @@ AnthropicBackend::ResearchCallbacks ResearchPanel::callbacks(bool followUp)
         scheduleRender();
     };
     cb.onReasoning = [this](const QString &r) { reasoningChars_ += r.size(); };
+    // Claude makes at most a few searches; these caps only stop a broken or
+    // hostile server from growing the lists without end.
+    constexpr int kMaxSearchLines = 50;
+    constexpr int kMaxSources = 300;
     cb.onSearch = [this](const QString &query) {
+        if (searchLog_.size() >= kMaxSearchLines)
+            return;
         QString q = guard::singleLine(query, 300);
         q.replace(QLatin1Char('`'), QLatin1Char('\''));
         searchLog_.append(QStringLiteral("%1. `%2`  *searching...*").arg(searchLog_.size() + 1).arg(q));
@@ -398,18 +404,18 @@ AnthropicBackend::ResearchCallbacks ResearchPanel::callbacks(bool followUp)
                                          : QStringLiteral("*%1*").arg(anthropic::searchErrorText(error)));
         }
         for (const anthropic::WebSource &s : results) {
-            if (isWebUrl(s.url)) {
+            if (isWebUrl(s.url) && others_.size() < kMaxSources) {
                 others_.append(s);
-                openableUrls_.insert(QString::fromLatin1(QUrl(s.url.trimmed()).toEncoded()));
+                openableUrls_.insert(sourceLinkTarget(s.url));
             }
         }
         sources_->show();
         scheduleRender();
     };
     cb.onCitation = [this](const anthropic::WebSource &c) {
-        if (isWebUrl(c.url)) {
+        if (isWebUrl(c.url) && cited_.size() < kMaxSources) {
             cited_.append(c);
-            openableUrls_.insert(QString::fromLatin1(QUrl(c.url.trimmed()).toEncoded()));
+            openableUrls_.insert(sourceLinkTarget(c.url));
         }
         sources_->show();
         scheduleRender();
@@ -503,6 +509,10 @@ void ResearchPanel::onAsk()
         return;
     }
     const Settings settings = Settings::load(ws::settingsFilePath());
+    if (hidingSwitchedOn(masking_, settings)) {
+        setStatus(hidingSwitchedOnMessage(QStringLiteral("Click Packet or Displayed packets")), true);
+        return;
+    }
     if (!CloudConsent::approved(settings)) {
         setStatus(QStringLiteral("SmartShark has a question before it sends anything:"));
         cloud_->ask(settings,

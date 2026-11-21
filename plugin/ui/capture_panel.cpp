@@ -320,7 +320,7 @@ void CapturePanel::analyse(const QString &question)
                 return;
             addresses_ = facts;
             startModel();
-        });
+        }, ownAddressesToSkip(Settings::load(ws::settingsFilePath())));
         return;
     }
     startModel();
@@ -407,6 +407,10 @@ void CapturePanel::onAsk()
         return;
     }
     const Settings settings = Settings::load(ws::settingsFilePath());
+    if (hidingSwitchedOn(masking_, settings)) {
+        setStatus(hidingSwitchedOnMessage(QStringLiteral("Click Summarize")), true);
+        return;
+    }
     if (!mayFollowUp(settings))
         return; // the question stays in the box until the user decides
     rebuildBackend(settings);

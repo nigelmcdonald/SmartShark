@@ -51,7 +51,8 @@ QString escapeMarkdown(const QString &text)
 bool isLoopbackHost(const QString &host)
 {
     const QString h = host.trimmed().toLower();
-    if (h == QLatin1String("localhost") || h.endsWith(QLatin1String(".localhost")))
+    // Only "localhost" itself: other names depend on what the resolver does.
+    if (h == QLatin1String("localhost"))
         return true;
     QHostAddress addr;
     if (!addr.setAddress(h.startsWith(QLatin1Char('[')) ? h.mid(1, h.size() - 2) : h))

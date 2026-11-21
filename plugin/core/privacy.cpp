@@ -132,9 +132,10 @@ QString AddressMasker::mask(const QString &text)
     // Cisco-style dotted form, as devices sometimes write it in payloads: aabb.ccdd.eeff.
     static const QRegularExpression dottedMacRe(QStringLiteral(
         "(?<![\\w.])([0-9A-Fa-f]{4})\\.([0-9A-Fa-f]{4})\\.([0-9A-Fa-f]{4})(?![\\w]|\\.[0-9A-Fa-f])"));
-    // Wireshark's short form with the maker's name: "Intel_dd:ee:ff".
-    static const QRegularExpression vendorMacRe(
-        QStringLiteral("(?<![\\w.-])([A-Za-z][\\w.-]*?)_([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})(?![\\w:])"));
+    // Wireshark's short forms with the maker's name: "Intel_dd:ee:ff", and for
+    // smaller address blocks "Maker_d:ee:ff" or "Maker_e:ff".
+    static const QRegularExpression vendorMacRe(QStringLiteral(
+        "(?<![\\w.-])([A-Za-z][\\w.-]*?)_([0-9A-Fa-f]{1,2}(?::[0-9A-Fa-f]{2}){1,4})(?![\\w:])"));
     // IPv6 candidates, checked with QHostAddress. The IPv4 tail comes first so
     // "::ffff:192.0.2.1" is taken whole.
     static const QRegularExpression ipv6Re(QStringLiteral(
@@ -165,15 +166,28 @@ QString AddressMasker::mask(const QString &text)
     });
 
     out = replaceMatches(out, vendorMacRe, [this](const QRegularExpressionMatch &m) {
-        const QString suffix = m.captured(2).toLower();
+        const QString suffix = m.captured(2).toLower().remove(QLatin1Char(':'));
         // Same device as a full address already seen? Use its placeholder.
         for (auto it = token_.cbegin(); it != token_.cend(); ++it) {
-            if (it.value().startsWith(QLatin1String("MAC-")) && it.key().size() == 17 && it.key().endsWith(suffix))
+            if (it.value().startsWith(QLatin1String("MAC-")) && it.key().size() == 17 &&
+                QString(it.key()).remove(QLatin1Char(':')).endsWith(suffix))
                 return m.captured(1) + QLatin1Char('_') + it.value();
         }
         return m.captured(1) + QLatin1Char('_') +
                tokenFor(QStringLiteral("partial:") + suffix, m.captured(2), true);
     });
+
+    // Known devices written without separators ("0800274e66a1") or as bytes
+    // in a hex dump ("08 00 27 4e 66 a1", on one line).
+    for (auto it = token_.cbegin(); it != token_.cend(); ++it) {
+        if (!it.value().startsWith(QLatin1String("MAC-")) || it.key().size() != 17)
+            continue;
+        const QStringList bytes = it.key().split(QLatin1Char(':'));
+        const QRegularExpression bare(QStringLiteral("(?<![0-9A-Fa-f])(?:%1|%2)(?![0-9A-Fa-f])")
+                                          .arg(bytes.join(QString()), bytes.join(QStringLiteral(" "))),
+                                      QRegularExpression::CaseInsensitiveOption);
+        out.replace(bare, it.value());
+    }
 
     out = replaceMatches(out, ipv6Re, [this](const QRegularExpressionMatch &m) {
         QHostAddress a;
@@ -201,6 +215,22 @@ QString AddressMasker::mask(const QString &text)
             return QString();
         return tokenFor(key, m.captured(0), false);
     });
+
+    // This computer's own IPv4 addresses also appear reversed in reverse-DNS
+    // names (d.c.b.a.in-addr.arpa) and with dashes in ISP host names
+    // (host-a-b-c-d.example.net).
+    for (const QString &own : own_) {
+        const QStringList p = own.split(QLatin1Char('.'));
+        if (p.size() != 4)
+            continue;
+        const QString reversed = QStringList{p[3], p[2], p[1], p[0]}.join(QStringLiteral("\\."));
+        const QRegularExpression forms(
+            QStringLiteral("(?<![\\d.])%1(?=\\.in-addr\\.arpa)|(?<!\\d)(?<!\\d-)%2(?!\\d)(?!-\\d)")
+                .arg(reversed, p.join(QLatin1Char('-'))),
+            QRegularExpression::CaseInsensitiveOption);
+        if (out.contains(forms))
+            out.replace(forms, tokenFor(own, own, false));
+    }
     return out;
 }
 

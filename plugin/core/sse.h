@@ -25,6 +25,7 @@ public:
 
 private:
     QByteArray buffer_;
+    qsizetype scanned_ = 0; // leading bytes of buffer_ known to hold no newline
     QByteArray eventData_;
     bool sawEvents_ = false;
 };

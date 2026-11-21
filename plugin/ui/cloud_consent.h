@@ -49,6 +49,16 @@ QString cloudCancelledMessage();
 // Public IP addresses on this computer's network adapters.
 QStringList localPublicAddresses();
 
+// Addresses online lookups must skip: this computer's own public addresses
+// when address hiding is on, otherwise none.
+QStringList ownAddressesToSkip(const Settings &settings);
+
+// True if address hiding is on now but the conversation started without it.
+// Its stored messages then hold real addresses, so a follow-up must not send
+// them; the panel shows hidingSwitchedOnMessage() instead.
+bool hidingSwitchedOn(bool conversationMasked, const Settings &settings);
+QString hidingSwitchedOnMessage(const QString &startAgain);
+
 // Clear the masker and set its scope for a new conversation. Returns true
 // if addresses are to be hidden.
 bool setUpMasker(AddressMasker *masker, const Settings &settings);

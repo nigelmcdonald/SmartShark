@@ -13,10 +13,15 @@ namespace smartshark {
 
 namespace {
 
-// Data inside a tagged block must not be able to close the block early.
-QString defuse(QString text, const QString &tag)
+// Data inside a tagged block must not be able to close it early or open
+// another block: every tag name used in the prompts is broken up.
+QString defuse(QString text, const QString & = QString())
 {
-    text.replace(QStringLiteral("</") + tag, QStringLiteral("</ ") + tag, Qt::CaseInsensitive);
+    for (const char *tag : {"packet", "addresses", "payload", "statistics"}) {
+        const QString t = QLatin1String(tag);
+        text.replace(QStringLiteral("</") + t, QStringLiteral("</ ") + t, Qt::CaseInsensitive);
+        text.replace(QStringLiteral("<") + t, QStringLiteral("< ") + t, Qt::CaseInsensitive);
+    }
     return text;
 }
 
@@ -94,14 +99,20 @@ QString explainPacketMessage(const PacketSnapshot &packet, int maxTreeChars, int
         msg += QStringLiteral("No IP layer in this packet.\n");
     } else {
         if (!packet.sourceAddress.isEmpty())
-            msg += QStringLiteral("Source: %1%2\n")
-                       .arg(packet.sourceAddress,
-                            packet.sourcePort.isEmpty() ? QString() : QStringLiteral(" port ") + packet.sourcePort);
+            msg += defuse(guard::singleLine(
+                       QStringLiteral("Source: %1%2")
+                           .arg(packet.sourceAddress,
+                                packet.sourcePort.isEmpty() ? QString() : QStringLiteral(" port ") + packet.sourcePort),
+                       300)) +
+                   QLatin1Char('\n');
         if (!packet.destinationAddress.isEmpty())
-            msg += QStringLiteral("Destination: %1%2\n")
-                       .arg(packet.destinationAddress, packet.destinationPort.isEmpty()
-                                                           ? QString()
-                                                           : QStringLiteral(" port ") + packet.destinationPort);
+            msg += defuse(guard::singleLine(QStringLiteral("Destination: %1%2")
+                                                .arg(packet.destinationAddress,
+                                                     packet.destinationPort.isEmpty()
+                                                         ? QString()
+                                                         : QStringLiteral(" port ") + packet.destinationPort),
+                                            300)) +
+                   QLatin1Char('\n');
         msg += defuse(factsForPrompt(packet.addresses), QStringLiteral("addresses"));
     }
     msg += QStringLiteral("</addresses>\n");

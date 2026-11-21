@@ -40,4 +40,9 @@ QString sourcesMarkdown(const QList<anthropic::WebSource> &cited, const QList<an
 // True for an http or https URL.
 bool isWebUrl(const QString &url);
 
+// A source URL in the encoded form used as a link target and for checking
+// clicks: brackets, parentheses and angle brackets are percent-encoded so the
+// URL cannot end the Markdown link early. Applying it twice changes nothing.
+QString sourceLinkTarget(const QString &url);
+
 } // namespace smartshark

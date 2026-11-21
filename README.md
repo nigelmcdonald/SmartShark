@@ -62,10 +62,10 @@ Use the **Research** tab, right-click a packet and choose **SmartShark > Researc
 
 ### Privacy controls
 
-- **You are asked first.** The first time packet data would go to a cloud provider, the panel shows exactly what will be sent and to whom, and waits for you to click **Send**. It asks once per provider. Local servers are never asked about, because nothing leaves your computer.
+- **You are asked first.** The first time packet data would go to a cloud provider, the panel lists what kind of data will be sent and to whom, and waits for you to click **Send**. It asks once per provider. Servers on your computer or local network are not asked about, because the data stays with you.
 - **Send less.** In **Tools > SmartShark > Settings**, under **Privacy**, choose how much of each packet's decoded fields is sent and how many bytes of payload (or none).
-- **Hide your addresses.** Tick **Hide MAC addresses and my public IP**, and the AI sees placeholders such as `MAC-1` and `HOST-1` instead. This covers every device's MAC address and this computer's public IP addresses. Other addresses, such as servers and private local addresses, are kept because they help the AI and identify no one. The panel shows the real addresses in the answers.
-- **See exactly what was sent.** Each answer has a collapsed **Sent to the AI** section with the text the model received, placeholders included. The rest of the panel shows the real addresses.
+- **Hide your addresses.** Tick **Hide MAC addresses and my public IP**, and the AI sees placeholders such as `MAC-1` and `HOST-1` instead. This covers MAC addresses in the forms Wireshark writes them (including short forms such as `Intel_4e:66:a1`) and the public IP addresses of this computer's network adapters. Behind a home router, your public IPv4 address usually belongs to the router, not this computer, so it is only hidden if it is on one of your adapters. Other addresses, such as servers and private local addresses, are kept because they help the AI and identify no one. The panel shows the real addresses in the answers.
+- **See exactly what was sent.** Each answer has a collapsed **Sent to the AI** section with the packet or capture message the model received, placeholders included. Your follow-up questions are sent as you typed them (with the same placeholders). The rest of the panel shows the real addresses.
 - Change your mind about online IP lookups, or make SmartShark ask again about cloud providers, from the same **Privacy** settings.
 
 ![SmartShark Settings with Anthropic Claude selected and the Privacy group](docs/images/settings.jpg)
@@ -103,22 +103,24 @@ Prebuilt releases are not available yet. This section will cover downloading the
 
 ## Privacy and security
 
-- **Local models keep everything on your computer.** With LM Studio, Ollama or another local server, nothing leaves your machine.
+- **Local models keep packet data with you.** With LM Studio, Ollama or another server on your computer, packet data stays there. A server elsewhere on your local network receives it over your network, unencrypted if its address starts with `http://`. Online IP lookups, if you allow them, are separate (see below).
 - **Cloud providers receive what you send them.** What each feature sends:
   - **Filter requests:** your request text and the current filter. No packet data.
   - **Packet explanations:** the packet's decoded fields (up to 24,000 characters by default), up to 2 KB of decoded or decrypted payload, facts about its IP addresses (including host names Wireshark resolved and online lookup results), and your follow-up questions.
   - **Capture questions:** statistics, not packets: packet and byte counts, the busiest hosts and conversations with their addresses, and names seen in the capture (DNS lookups, TLS server names, HTTP hosts), plus your questions.
   - **Web research:** the same data as a packet explanation or capture question, sent to Anthropic. Claude's web searches can include names from the capture, such as device makers or server names. It is told never to search for hidden addresses (`HOST-1`, `MAC-1`), private addresses or anything that identifies you.
-  - Packet data is marked to the model as untrusted data, so text inside a packet cannot give it instructions.
+  - Packet data is marked to the model as untrusted data and the model is told to treat it as data, not instructions. This reduces, but cannot rule out, a crafted packet steering the answer, so treat answers about suspicious traffic with care.
 - **SmartShark asks before packet data first goes to a cloud provider**, once per provider, and shows what will be sent. Servers on your computer or local network are not asked about.
-- **You can send less.** Under **Privacy** in **Tools > SmartShark > Settings**, limit the packet fields and payload sent, or replace MAC addresses and your public IP with placeholders (`HOST-1`, `MAC-1`). The **Sent to the AI** section in the panel shows exactly what went out. Host names are still sent when addresses are hidden, and addresses inside raw payload bytes cannot be hidden.
-- **IP address lookups are opt-in.** SmartShark asks once before looking up public addresses online, and sends only the addresses (to rdap.org and your DNS server), never packet data.
-- **API keys are stored in Windows Credential Manager**, never in a settings file.
+- **You can send less.** Under **Privacy** in **Tools > SmartShark > Settings**, limit the packet fields and payload sent, or replace MAC addresses and your public IP with placeholders (`HOST-1`, `MAC-1`). The **Sent to the AI** section in the panel shows the packet or capture message exactly as sent. Host names are still sent when addresses are hidden (except that your own adapter addresses are also hidden inside reverse-DNS and ISP-style names), and an address inside raw payload bytes is only hidden if the same device's address also appears in readable form.
+- **IP address lookups are opt-in.** SmartShark asks once before looking up public addresses online, and sends only the addresses (to rdap.org and your DNS server), never packet data. With address hiding on, this computer's own addresses are not looked up.
+- **API keys are stored in Windows Credential Manager**, never in a settings file. Each key is tied to the server it was entered for. If you change a provider's server address, SmartShark asks before sending the saved key to the new server.
 - **Safeguards:**
   - API keys are never sent over unencrypted `http://` except to a server on your own computer.
-  - Redirects to other hosts are not followed.
-  - Oversized replies are cut off, and a reply that runs longer than 10 minutes is stopped, in case a model gets stuck.
-  - AI output and names from the network are shown as formatted text with web content (HTML) switched off. Nothing in them can run code, load images or files, or open links by itself.
+  - Requests to the AI server do not follow redirects to other hosts. (Online IP lookups go to rdap.org, which redirects to the right regional registry; no keys or packet data are sent there.)
+  - Replies longer than 200,000 characters are stopped, and each request to the AI is stopped after 10 minutes, in case a model gets stuck.
+  - AI output and names from the network are shown as formatted text with web content (HTML), images and tooltips switched off. Nothing in them can run code, load images or files, or open links by itself. Only the Research tab's source links open, and only when you click them.
+  - If the cloud question appears for an `http://` address, it warns that the data would travel unencrypted.
+- **Security review:** before the first release, the code was reviewed for security by an AI model (Anthropic's Fable 5.2), and every finding was fixed. What was found and changed, and how to report a problem, is in [SECURITY.md](SECURITY.md).
 
 ## Building from source
 

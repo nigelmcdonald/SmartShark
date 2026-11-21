@@ -39,6 +39,9 @@ private slots:
 private:
     QString currentProviderId() const;
     QString validateForm() const; // empty if the form is usable
+    // False if the user declined to send a saved key to a server other than
+    // the one it was saved for. Records the server on success.
+    bool confirmKeyHost(const QString &providerId, const QString &baseUrl, const QString &key);
     void storeFormIntoCache(const QString &providerId);
     void showProvider(const QString &providerId);
     void setStatus(const QString &text, bool error = false);

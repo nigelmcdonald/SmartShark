@@ -15,6 +15,7 @@
 #include <QUrl>
 
 #include "core/input_guard.h"
+#include "core/privacy.h"
 
 namespace smartshark {
 
@@ -72,7 +73,8 @@ void IpLookup::finishOne(const std::shared_ptr<Job> &job)
     job->done(job->facts);
 }
 
-void IpLookup::lookup(const QList<IpFacts> &facts, std::function<void(const QList<IpFacts> &)> done)
+void IpLookup::lookup(const QList<IpFacts> &facts, std::function<void(const QList<IpFacts> &)> done,
+                      const QStringList &skip)
 {
     cancel();
     auto job = std::make_shared<Job>();
@@ -82,7 +84,7 @@ void IpLookup::lookup(const QList<IpFacts> &facts, std::function<void(const QLis
 
     for (int i = 0; i < job->facts.size(); ++i) {
         IpFacts &f = job->facts[i];
-        if (!f.isPublic)
+        if (!f.isPublic || skip.contains(normaliseAddress(f.address)))
             continue;
         if (cache_.contains(f.address)) {
             const QString wsName = f.wiresharkName;

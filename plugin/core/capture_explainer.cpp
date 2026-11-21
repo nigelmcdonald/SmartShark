@@ -59,8 +59,15 @@ QString captureSystemPrompt()
 QString captureMessage(const CaptureStats &stats, const QList<IpFacts> &addresses, const QString &displayFilter,
                        const QString &question, int maxStatsChars)
 {
-    auto defuse = [](QString text, const QString &tag) {
-        return text.replace(QStringLiteral("</") + tag, QStringLiteral("</ ") + tag, Qt::CaseInsensitive);
+    // Break up every tag name used in the prompts, so data cannot close its
+    // block early or open another.
+    auto defuse = [](QString text, const QString &) {
+        for (const char *tag : {"packet", "addresses", "payload", "statistics"}) {
+            const QString t = QLatin1String(tag);
+            text.replace(QStringLiteral("</") + t, QStringLiteral("</ ") + t, Qt::CaseInsensitive);
+            text.replace(QStringLiteral("<") + t, QStringLiteral("< ") + t, Qt::CaseInsensitive);
+        }
+        return text;
     };
 
     QString msg;

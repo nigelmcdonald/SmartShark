@@ -23,6 +23,24 @@ ProviderConfig Settings::activeConfig() const
     return cfg;
 }
 
+QString Settings::baseUrlFor(const QString &id) const
+{
+    const ProviderPreset *preset = findPreset(id);
+    const QString url = perProvider.value(id).baseUrl.trimmed();
+    return !url.isEmpty() ? url : (preset ? preset->baseUrl : QString());
+}
+
+bool Settings::keyMayBeSentTo(const QString &id, const QString &baseUrl) const
+{
+    QString bound = perProvider.value(id).keyHost;
+    if (bound.isEmpty()) {
+        const ProviderPreset *preset = findPreset(id);
+        bound = preset ? serverHost(preset->baseUrl) : QString();
+    }
+    const QString host = serverHost(baseUrl);
+    return !bound.isEmpty() && host == bound;
+}
+
 Settings Settings::load(const QString &iniPath)
 {
     Settings s;
@@ -58,8 +76,9 @@ Settings Settings::load(const QString &iniPath)
         ProviderSettings ps;
         ps.baseUrl = ini.value(QStringLiteral("base_url")).toString();
         ps.model = ini.value(QStringLiteral("model")).toString();
+        ps.keyHost = ini.value(QStringLiteral("key_host")).toString().trimmed().toLower();
         ini.endGroup();
-        if (!ps.baseUrl.isEmpty() || !ps.model.isEmpty())
+        if (!ps.baseUrl.isEmpty() || !ps.model.isEmpty() || !ps.keyHost.isEmpty())
             s.perProvider.insert(p.id, ps);
     }
 
@@ -85,6 +104,7 @@ bool Settings::save(const QString &iniPath) const
         ini.beginGroup(QStringLiteral("provider.") + it.key());
         ini.setValue(QStringLiteral("base_url"), it.value().baseUrl);
         ini.setValue(QStringLiteral("model"), it.value().model);
+        ini.setValue(QStringLiteral("key_host"), it.value().keyHost);
         ini.endGroup();
     }
     ini.sync();

@@ -231,7 +231,7 @@ void OpenAiCompatBackend::chatStream(const QList<ChatMessage> &messages, DeltaCa
             QString reasoning;
             const QString delta = openai::parseStreamDelta(event, &err, &reasoning);
             if (!err.isEmpty())
-                state->streamError = err;
+                state->streamError = guard::singleLine(err, 500);
             if (!reasoning.isEmpty() && onReasoning) {
                 onReasoning(reasoning);
                 if (pending_ != reply)
@@ -267,10 +267,7 @@ void OpenAiCompatBackend::chatStream(const QList<ChatMessage> &messages, DeltaCa
         reply->deleteLater();
 
         if (state->tooLong) {
-            done(ChatResult{false, state->text,
-                            QStringLiteral("The reply grew past %1 characters, so SmartShark stopped it. The model may "
-                                           "have got stuck repeating itself. Try again, or choose another model.")
-                                .arg(guard::kMaxReplyChars)});
+            done(ChatResult{false, state->text, replyTooLongError()});
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {

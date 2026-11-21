@@ -104,6 +104,9 @@ public:
 private:
     QMap<int, QJsonObject> blocks_;
     QMap<int, QString> partialJson_;
+    // Streamed text, thinking and signatures per block, joined into blocks_
+    // only in blocks(): appending to a QJsonObject string each time is slow.
+    QMap<int, QString> textParts_, thinkingParts_, signatureParts_;
     QString stopReason_, refusalCategory_, error_, text_;
 };
 

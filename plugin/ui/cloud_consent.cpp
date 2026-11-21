@@ -10,6 +10,7 @@
 #include <QLabel>
 #include <QNetworkInterface>
 #include <QPushButton>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include "core/ip_facts.h"
@@ -91,14 +92,21 @@ void CloudConsent::ask(const Settings &settings, const QString &whatIsSent, std:
     const QString masking =
         settings.masking == AddressMasking::Off
             ? QStringLiteral("IP and MAC addresses are sent as they are. You can hide your own addresses in Settings.")
-            : QStringLiteral("MAC addresses and your public IP addresses are replaced with placeholders such as "
-                             "MAC-1 before sending. Host names are still sent.");
+            : QStringLiteral("MAC addresses and this computer's public IP addresses (those on its network "
+                             "adapters) are replaced with placeholders such as MAC-1 before sending. Host names "
+                             "are still sent.");
+    const QString unencrypted =
+        QUrl(cfg.baseUrl.trimmed()).scheme() == QLatin1String("http")
+            ? QStringLiteral("<br><b>This address uses http, so the data travels unencrypted</b> and anyone on the "
+                             "way can read it.")
+            : QString();
     text_->setText(QStringLiteral("<b>Send packet data to %1?</b><br>"
-                                  "This server is not on your computer, so the company that runs it will receive:"
+                                  "This server is not on your computer or local network, so whoever runs it will "
+                                  "receive:"
                                   "<ul style=\"margin-top:2px; margin-bottom:2px;\">%2</ul>"
-                                  "%3<br>SmartShark asks once for each provider. To keep everything on your "
+                                  "%3%4<br>SmartShark asks once for each provider. To keep everything on your "
                                   "computer, choose a local server such as LM Studio or Ollama in Settings.")
-                       .arg(who, whatIsSent, masking));
+                       .arg(who, whatIsSent, masking, unencrypted));
     show();
 }
 
@@ -117,6 +125,24 @@ QStringList localPublicAddresses()
             out.append(n);
     }
     return out;
+}
+
+QStringList ownAddressesToSkip(const Settings &settings)
+{
+    return settings.masking == AddressMasking::Off ? QStringList() : localPublicAddresses();
+}
+
+bool hidingSwitchedOn(bool conversationMasked, const Settings &settings)
+{
+    return !conversationMasked && settings.masking != AddressMasking::Off;
+}
+
+QString hidingSwitchedOnMessage(const QString &startAgain)
+{
+    return QStringLiteral("Address hiding was switched on after this conversation started, so the packet data it "
+                          "already holds still has the real addresses. Nothing was sent. %1 to start again with "
+                          "addresses hidden.")
+        .arg(startAgain);
 }
 
 bool setUpMasker(AddressMasker *masker, const Settings &settings)

@@ -21,6 +21,7 @@
 #include "core/input_guard.h"
 #include "core/openai_compat.h"
 #include "core/secret_store.h"
+#include "ui/backend_factory.h"
 #include "core/settings.h"
 #include "ui/bridge.h"
 #include "ui/settings_dialog.h"
@@ -195,7 +196,7 @@ void FilterDialog::rebuildBackend()
 
     const Settings settings = Settings::load(ws::settingsFilePath());
     ProviderConfig cfg = settings.activeConfig();
-    cfg.apiKey = secrets::loadApiKey(cfg.providerId);
+    cfg.apiKey = storedApiKey(settings, cfg);
 
     backend_ = createBackend(cfg, this);
     assistant_ = std::make_unique<FilterAssistant>(backend_, &ws::validateDisplayFilter);

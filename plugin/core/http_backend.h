@@ -57,4 +57,7 @@ protected:
 // The backend for the provider's API kind. The caller owns it through parent.
 HttpBackend *createBackend(const ProviderConfig &config, QObject *parent);
 
+// Error text when a reply passes guard::kMaxReplyChars and is stopped.
+QString replyTooLongError();
+
 } // namespace smartshark

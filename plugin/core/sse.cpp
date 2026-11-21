@@ -18,9 +18,13 @@ QList<QByteArray> SseParser::feed(const QByteArray &chunk)
 
     qsizetype start = 0;
     for (;;) {
-        const qsizetype nl = buffer_.indexOf('\n', start);
-        if (nl < 0)
+        // scanned_: bytes already known to hold no newline, so a long line
+        // arriving in small pieces is not searched again from its start.
+        const qsizetype nl = buffer_.indexOf('\n', qMax(start, scanned_));
+        if (nl < 0) {
+            scanned_ = buffer_.size();
             break;
+        }
         QByteArray line = buffer_.mid(start, nl - start);
         start = nl + 1;
         if (line.endsWith('\r'))
@@ -49,6 +53,7 @@ QList<QByteArray> SseParser::feed(const QByteArray &chunk)
         // Other fields (event:, id:, retry:) are not needed.
     }
     buffer_.remove(0, start);
+    scanned_ = qMax<qsizetype>(0, scanned_ - start);
     return events;
 }
 

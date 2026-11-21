@@ -99,7 +99,8 @@ QNetworkReply *HttpBackend::send(const QString &path, const QByteArray *postBody
 QString HttpBackend::describeNetworkError(QNetworkReply *reply, const QByteArray &body) const
 {
     const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    const QString apiMessage = openai::parseErrorMessage(body); // also reads Anthropic's error shape
+    // Also reads Anthropic's error shape. Shortened: a hostile server could send megabytes.
+    const QString apiMessage = guard::singleLine(openai::parseErrorMessage(body), 500);
 
     if (reply->property("smartshark_too_large").toBool())
         return QStringLiteral("The server's reply was larger than %1 MB, so SmartShark stopped reading it.")
@@ -137,6 +138,13 @@ QString HttpBackend::describeNetworkError(QNetworkReply *reply, const QByteArray
             .arg(status)
             .arg(apiMessage.isEmpty() ? reply->errorString() : apiMessage);
     return reply->errorString();
+}
+
+QString replyTooLongError()
+{
+    return QStringLiteral("The reply grew past %1 characters, so SmartShark stopped it. The model may have got stuck "
+                          "repeating itself. Try again, or choose another model.")
+        .arg(guard::kMaxReplyChars);
 }
 
 HttpBackend *createBackend(const ProviderConfig &config, QObject *parent)

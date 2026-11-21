@@ -9,4 +9,4 @@ cmake --build "%TEST_BUILD%" || exit /b 1
 
 rem Qt DLLs for the test executable.
 set "PATH=%SMARTSHARK_QT%\bin;%PATH%"
-ctest --test-dir "%TEST_BUILD%" --output-on-failure
+ctest --test-dir "%TEST_BUILD%" --output-on-failure %*

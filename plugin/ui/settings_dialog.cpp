@@ -102,9 +102,10 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent)
                                              "per packet. None sends no payload data."));
     masking_ = new QCheckBox(QStringLiteral("Hide MAC addresses and my public IP"), this);
     masking_->setToolTip(QStringLiteral(
-        "The AI sees placeholders such as MAC-1 and HOST-1 instead; the panel shows the real addresses. Covers every "
-        "device's MAC address and the public addresses of this computer. Other addresses help the AI and identify "
-        "no one. Check the \"Sent to the AI\" section to see what went out."));
+        "The AI sees placeholders such as MAC-1 and HOST-1 instead; the panel shows the real addresses. Covers MAC "
+        "addresses in the forms Wireshark writes them, and the public addresses on this computer's network adapters "
+        "(behind a home router, your public IPv4 address is usually the router's, so it is not covered). Other "
+        "addresses help the AI and identify no one. Check the \"Sent to the AI\" section to see what went out."));
     lookups_ = new QComboBox(this);
     lookups_->addItem(QStringLiteral("Ask first"), static_cast<int>(Settings::OnlineLookups::Ask));
     lookups_->addItem(QStringLiteral("Always"), static_cast<int>(Settings::OnlineLookups::Always));
@@ -179,7 +180,7 @@ void SettingsDialog::storeFormIntoCache(const QString &providerId)
     if (providerId.isEmpty())
         return;
     const ProviderPreset *preset = findPreset(providerId);
-    ProviderSettings ps;
+    ProviderSettings ps = settings_.perProvider.value(providerId); // keeps keyHost
     const QString url = baseUrl_->text().trimmed();
     ps.baseUrl = (preset && url == preset->baseUrl) ? QString() : url; // store only overrides
     ps.model = model_->currentText().trimmed();
@@ -201,7 +202,8 @@ void SettingsDialog::showProvider(const QString &providerId)
 
     if (preset && preset->isLocal) {
         apiKey_->setPlaceholderText(QStringLiteral("Not needed for a local server"));
-        keyHelp_->setText(QStringLiteral("Runs on this computer: packet data does not leave your machine."));
+        keyHelp_->setText(QStringLiteral("A server you run yourself. Packet data stays on this computer, or on your "
+                                         "local network if the address above points to another machine there."));
     } else if (preset && preset->api == ApiKind::AnthropicMessages) {
         apiKey_->setPlaceholderText(QStringLiteral("Required: a Claude API key (starts with sk-ant-)"));
         keyHelp_->setText(QStringLiteral(
@@ -262,6 +264,8 @@ void SettingsDialog::onFetchModels()
         return;
     }
     cfg.apiKey = guard::cleanApiKey(cfg.apiKey, nullptr);
+    if (!confirmKeyHost(cfg.providerId, cfg.baseUrl, cfg.apiKey))
+        return;
 
     delete probe_;
     if (const ProviderPreset *preset = findPreset(cfg.providerId))
@@ -301,6 +305,10 @@ bool SettingsDialog::save()
     settings_.onlineLookups = static_cast<Settings::OnlineLookups>(lookups_->currentData().toInt());
 
     for (auto it = keyCache_.cbegin(); it != keyCache_.cend(); ++it) {
+        if (!confirmKeyHost(it.key(), settings_.baseUrlFor(it.key()), it.value()))
+            return false;
+    }
+    for (auto it = keyCache_.cbegin(); it != keyCache_.cend(); ++it) {
         if (it.value() != secrets::loadApiKey(it.key()) && !secrets::saveApiKey(it.key(), it.value())) {
             setStatus(QStringLiteral("Could not save the API key to Windows Credential Manager."), true);
             return false;
@@ -310,6 +318,39 @@ bool SettingsDialog::save()
         setStatus(QStringLiteral("Could not write %1.").arg(ws::settingsFilePath()), true);
         return false;
     }
+    return true;
+}
+
+bool SettingsDialog::confirmKeyHost(const QString &providerId, const QString &baseUrl, const QString &key)
+{
+    const QString host = serverHost(baseUrl);
+    ProviderSettings ps = settings_.perProvider.value(providerId);
+    if (key.isEmpty() || ps.keyHost == host)
+        return true;
+    // A key typed in this session belongs to the server shown with it. A key
+    // loaded from Credential Manager was saved for another server: ask.
+    if (key == secrets::loadApiKey(providerId) && !settings_.keyMayBeSentTo(providerId, baseUrl)) {
+        QString was = ps.keyHost;
+        if (was.isEmpty())
+            if (const ProviderPreset *preset = findPreset(providerId))
+                was = serverHost(preset->baseUrl);
+        const auto answer = QMessageBox::question(
+            this, QStringLiteral("Send your saved API key?"),
+            QStringLiteral("Your saved API key was entered for %1. Send it to %2?\n\n"
+                           "Only say Yes if you trust %2 with the key. Otherwise choose No and enter the key "
+                           "for the new server.")
+                .arg(was.isEmpty() ? QStringLiteral("another server") : was, host),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer != QMessageBox::Yes) {
+            setStatus(QStringLiteral("The saved key was not sent. Enter the API key for %1, or change the server "
+                                     "address back.")
+                          .arg(host),
+                      true);
+            return false;
+        }
+    }
+    ps.keyHost = host;
+    settings_.perProvider.insert(providerId, ps);
     return true;
 }
 

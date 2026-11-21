@@ -49,7 +49,11 @@ enum class AddressMasking {
 //
 // Addresses that identify no one are kept: unspecified (0.0.0.0, ::),
 // loopback, multicast and the broadcast address 255.255.255.255.
-// Host names are not masked.
+// Host names are not masked, except that the listed own IPv4 addresses are
+// also replaced in reverse-DNS names and in dashed form (host-a-b-c-d...).
+// MAC addresses are recognised as aa:bb:cc:dd:ee:ff, aa-bb-..., aabb.ccdd.eeff
+// and Wireshark's Maker_dd:ee:ff short forms; a device already seen is also
+// replaced when written as aabbccddeeff or as hex-dump bytes on one line.
 class AddressMasker {
 public:
     // Default: every address. With Mine, only MAC addresses, IPv6 addresses

@@ -7,7 +7,7 @@ Notes for anyone changing the code. Building is covered in [building-windows.md]
 - `plugin/smartshark.c`: plugin registration, the **Tools > SmartShark** menu and the packet list's right-click menu.
 - `plugin/core/`: the logic, with no Wireshark headers, so it can be unit-tested on its own: model backends, prompts, reply parsing, settings, statistics, address facts, privacy and input checks.
 - `plugin/ui/`: Qt dialogs, the side panel and its tabs, and the glue to Wireshark. Only `ui/ws_services.cpp` includes Wireshark headers.
-- `tests/`: unit tests for `plugin/core/` (Qt Test). Run them with `scripts\test.cmd`; they need Qt only, not a Wireshark build.
+- `tests/`: unit tests for `plugin/core/` (`test_core.cpp`) and for the panel's safe Markdown view (`test_ui.cpp`, run offscreen), both with Qt Test. Run them with `scripts\test.cmd`; they need Qt only, not a Wireshark build. Security-relevant changes should keep [SECURITY.md](../SECURITY.md) accurate.
 
 ## Conventions
 

@@ -380,7 +380,7 @@ void InvestigationPanel::startLookups()
         packet_.addresses = facts;
         render();
         startModel();
-    });
+    }, ownAddressesToSkip(Settings::load(ws::settingsFilePath())));
 }
 
 void InvestigationPanel::startModel()
@@ -466,6 +466,12 @@ void InvestigationPanel::onAsk()
     if (question.isEmpty() || phase_ != Phase::Idle || messages_.size() < 3)
         return;
     const Settings settings = Settings::load(ws::settingsFilePath());
+    if (hidingSwitchedOn(masking_, settings)) {
+        setStatus(hidingSwitchedOnMessage(QStringLiteral("Right-click the packet and choose SmartShark > Explain "
+                                                         "This Packet")),
+                  true);
+        return;
+    }
     if (!mayFollowUp(settings))
         return; // the question stays in the box until the user decides
     rebuildBackend(settings);

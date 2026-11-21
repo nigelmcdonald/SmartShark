@@ -217,6 +217,9 @@ ContentAccumulator::Update ContentAccumulator::apply(const QByteArray &eventData
     if (type == QLatin1String("content_block_start") && index >= 0) {
         const QJsonObject block = root.value(QStringLiteral("content_block")).toObject();
         blocks_[index] = block;
+        textParts_.remove(index);
+        thinkingParts_.remove(index);
+        signatureParts_.remove(index);
         if (block.value(QStringLiteral("type")).toString() == QLatin1String("web_search_tool_result")) {
             const QJsonValue content = block.value(QStringLiteral("content"));
             if (content.isArray()) {
@@ -234,14 +237,13 @@ ContentAccumulator::Update ContentAccumulator::apply(const QByteArray &eventData
         const QString kind = delta.value(QStringLiteral("type")).toString();
         if (kind == QLatin1String("text_delta")) {
             up.text = delta.value(QStringLiteral("text")).toString();
-            block.insert(QStringLiteral("text"), block.value(QStringLiteral("text")).toString() + up.text);
+            textParts_[index] += up.text;
             text_ += up.text;
         } else if (kind == QLatin1String("thinking_delta")) {
             up.thinking = delta.value(QStringLiteral("thinking")).toString();
-            block.insert(QStringLiteral("thinking"), block.value(QStringLiteral("thinking")).toString() + up.thinking);
+            thinkingParts_[index] += up.thinking;
         } else if (kind == QLatin1String("signature_delta")) {
-            block.insert(QStringLiteral("signature"), block.value(QStringLiteral("signature")).toString() +
-                                                          delta.value(QStringLiteral("signature")).toString());
+            signatureParts_[index] += delta.value(QStringLiteral("signature")).toString();
         } else if (kind == QLatin1String("input_json_delta")) {
             partialJson_[index] += delta.value(QStringLiteral("partial_json")).toString();
         } else if (kind == QLatin1String("citations_delta")) {
@@ -269,7 +271,8 @@ ContentAccumulator::Update ContentAccumulator::apply(const QByteArray &eventData
         refusalCategory_ =
             delta.value(QStringLiteral("stop_details")).toObject().value(QStringLiteral("category")).toString();
     } else if (type == QLatin1String("error")) {
-        error_ = root.value(QStringLiteral("error")).toObject().value(QStringLiteral("message")).toString();
+        error_ = guard::singleLine(
+            root.value(QStringLiteral("error")).toObject().value(QStringLiteral("message")).toString(), 500);
         if (error_.isEmpty())
             error_ = QStringLiteral("The server reported an error while replying.");
     }
@@ -279,8 +282,17 @@ ContentAccumulator::Update ContentAccumulator::apply(const QByteArray &eventData
 QJsonArray ContentAccumulator::blocks() const
 {
     QJsonArray out;
-    for (const QJsonObject &b : blocks_)
+    for (auto it = blocks_.cbegin(); it != blocks_.cend(); ++it) {
+        QJsonObject b = it.value();
+        const auto join = [&](const QMap<int, QString> &parts, const QString &field) {
+            if (parts.contains(it.key()))
+                b.insert(field, b.value(field).toString() + parts.value(it.key()));
+        };
+        join(textParts_, QStringLiteral("text"));
+        join(thinkingParts_, QStringLiteral("thinking"));
+        join(signatureParts_, QStringLiteral("signature"));
         out.append(b);
+    }
     return out;
 }
 
@@ -369,17 +381,19 @@ void AnthropicBackend::chatStream(const QList<ChatMessage> &messages, DeltaCallb
         QString stopReason;
         QString refusalCategory;
         QString streamError;
+        bool tooLong = false;
     };
     auto state = std::make_shared<State>();
 
-    // Returns false if the request was cancelled from inside a callback.
+    // Returns false if the request was cancelled from inside a callback, or
+    // the reply became too long (then it is reported when it finishes).
     auto consume = [this, reply, state, onDelta, onReasoning](const QByteArray &chunk) -> bool {
         if (state->raw.size() + chunk.size() <= guard::kMaxResponseBytes)
             state->raw.append(chunk);
         for (const QByteArray &event : state->parser.feed(chunk)) {
             const anthropic::StreamEvent ev = anthropic::parseStreamEvent(event);
             if (!ev.error.isEmpty())
-                state->streamError = ev.error;
+                state->streamError = guard::singleLine(ev.error, 500);
             if (!ev.stopReason.isEmpty()) {
                 state->stopReason = ev.stopReason;
                 state->refusalCategory = ev.refusalCategory;
@@ -394,6 +408,11 @@ void AnthropicBackend::chatStream(const QList<ChatMessage> &messages, DeltaCallb
                 onDelta(ev.text);
                 if (pending_ != reply)
                     return false;
+                if (state->text.size() > guard::kMaxReplyChars) {
+                    state->tooLong = true;
+                    reply->abort(); // finishes the reply
+                    return false;
+                }
             }
         }
         return true;
@@ -404,11 +423,15 @@ void AnthropicBackend::chatStream(const QList<ChatMessage> &messages, DeltaCallb
     connect(reply, &QNetworkReply::finished, this, [this, reply, state, consume, onDelta, done]() {
         if (pending_ != reply)
             return; // cancelled
-        if (!consume(reply->readAll()))
+        if (!state->tooLong && !consume(reply->readAll()) && !state->tooLong)
             return;
         pending_ = nullptr;
         reply->deleteLater();
 
+        if (state->tooLong) {
+            done(ChatResult{false, state->text, replyTooLongError()});
+            return;
+        }
         if (reply->error() != QNetworkReply::NoError) {
             done(ChatResult{false, state->text, describeNetworkError(reply, state->raw)});
             return;
@@ -493,10 +516,11 @@ void AnthropicBackend::researchRequest(const QJsonArray &messages, const QString
         SseParser parser;
         anthropic::ContentAccumulator acc;
         QByteArray raw;
+        bool tooLong = false;
     };
     auto state = std::make_shared<State>();
 
-    auto consume = [this, reply, state, cb](const QByteArray &chunk) -> bool {
+    auto consume = [this, reply, state, cb, textSoFar](const QByteArray &chunk) -> bool {
         if (state->raw.size() + chunk.size() <= guard::kMaxResponseBytes)
             state->raw.append(chunk);
         for (const QByteArray &event : state->parser.feed(chunk)) {
@@ -513,6 +537,11 @@ void AnthropicBackend::researchRequest(const QJsonArray &messages, const QString
                 cb.onText(up.text);
             if (pending_ != reply)
                 return false; // cancelled from a callback
+            if (textSoFar.size() + state->acc.text().size() > guard::kMaxReplyChars) {
+                state->tooLong = true;
+                reply->abort(); // finishes the reply
+                return false;
+            }
         }
         return true;
     };
@@ -523,12 +552,16 @@ void AnthropicBackend::researchRequest(const QJsonArray &messages, const QString
             [this, reply, state, consume, cb, done, messages, system, resumes, textSoFar]() {
                 if (pending_ != reply)
                     return;
-                if (!consume(reply->readAll()))
+                if (!state->tooLong && !consume(reply->readAll()) && !state->tooLong)
                     return;
                 pending_ = nullptr;
                 reply->deleteLater();
 
                 const QString text = textSoFar + state->acc.text();
+                if (state->tooLong) {
+                    done(ChatResult{false, text, replyTooLongError()});
+                    return;
+                }
                 if (reply->error() != QNetworkReply::NoError) {
                     done(ChatResult{false, text, describeNetworkError(reply, state->raw)});
                     return;

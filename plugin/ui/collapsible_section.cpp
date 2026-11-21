@@ -8,7 +8,10 @@
 #include <QAbstractTextDocumentLayout>
 #include <QHBoxLayout>
 #include <QImage>
+#include <QEvent>
 #include <QLabel>
+#include <QTextBlock>
+#include <QTextCursor>
 #include <QTextDocument>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -36,7 +39,48 @@ void SafeMarkdownView::setSafeMarkdown(const QString &markdown)
     // from a model that has read attacker-controlled packet data.
     document()->setMarkdown(markdown, QTextDocument::MarkdownFeatures(QTextDocument::MarkdownDialectGitHub |
                                                                        QTextDocument::MarkdownNoHTML));
+    // A link title ([text](url "title")) becomes a tooltip, and Qt shows
+    // tooltips as rich text that can load images from anywhere, including
+    // network paths. Remove every tooltip; event() also refuses to show any.
+    for (QTextBlock block = document()->begin(); block.isValid(); block = block.next()) {
+        for (auto it = block.begin(); !it.atEnd(); ++it) {
+            const QTextFragment fragment = it.fragment();
+            QTextCharFormat format = fragment.charFormat();
+            if (!format.hasProperty(QTextFormat::TextToolTip))
+                continue;
+            format.clearProperty(QTextFormat::TextToolTip);
+            QTextCursor cursor(document());
+            cursor.setPosition(fragment.position());
+            cursor.setPosition(fragment.position() + fragment.length(), QTextCursor::KeepAnchor);
+            cursor.setCharFormat(format);
+        }
+    }
     fitHeight();
+}
+
+bool SafeMarkdownView::event(QEvent *e)
+{
+    if (e->type() == QEvent::ToolTip)
+        return true;
+    return QTextBrowser::event(e);
+}
+
+bool SafeMarkdownView::viewportEvent(QEvent *e)
+{
+    if (e->type() == QEvent::ToolTip)
+        return true;
+    return QTextBrowser::viewportEvent(e);
+}
+
+bool SafeMarkdownView::hasToolTips() const
+{
+    for (QTextBlock block = document()->begin(); block.isValid(); block = block.next()) {
+        for (auto it = block.begin(); !it.atEnd(); ++it) {
+            if (it.fragment().charFormat().hasProperty(QTextFormat::TextToolTip))
+                return true;
+        }
+    }
+    return false;
 }
 
 QVariant SafeMarkdownView::loadResource(int, const QUrl &)
