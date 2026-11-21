@@ -160,8 +160,18 @@ scripts\install.cmd       copy the plugin into your Wireshark plugin folder
 
 - **Done:** version 0.1.0, the first release, with a prebuilt download for Wireshark 4.6 and a [security review](SECURITY.md).
 - **Next:** builds for new Wireshark versions as they come out, and fixes for problems people report. Ideas and bug reports are welcome on the [issue tracker](https://github.com/nigelmcdonald/SmartShark/issues).
-- **Planned for a future version:**
+- **Planned for future versions** (roughly in this order):
+  - **Clickable answers:** **Apply** and **Copy** next to every filter the AI suggests, frame numbers that jump to the packet, and a way back to your previous filter.
+  - **Easier starts:** ready-made questions on the Capture tab ("Is anything failing?", "Anything suspicious?"), an **Explain selected packet** button in the Packet tab, and a note when you have moved to a different packet.
+  - **Richer capture statistics:** the problems Wireshark itself flagged (expert information) first, then DNS and HTTP errors, TLS versions and alerts, TCP problems such as lost segments or zero windows, traffic per host and over time, each with example packets.
+  - **Findings at a glance:** a one-line verdict at the top, and each finding marked with how serious it is and how sure the AI is, with its evidence and a filter to check it. Clearly labelled as the AI's assessment, separate from the facts SmartShark counted.
+  - **Conversation context:** when explaining a packet, also show the AI the packets around it in the same conversation, so it can say "this is the reply to frame 298" instead of guessing.
   - **Selected packets:** select several packets in the packet list (for example a handshake, or a request and its reply) and have the AI explain them together, with each packet's full detail.
+  - **History and reports:** go back to earlier answers, copy an answer, and save a report (with real addresses or with placeholders).
+  - **Compare two packets:** pin one packet, pick another, and see a table of what differs, with the AI explaining why it matters.
+  - **Explain one field:** ask about a single field in the packet details instead of the whole packet.
+  - **Glossary and reading level:** short definitions of the terms used in an answer, and a choice between beginner, standard and expert explanations.
+  - **Filter help:** how many packets a filter matches, suggestions when it matches none, and an explanation of any filter you paste in.
   - **Web research with other providers:** only if it can work without extra setup, such as installing a separate search engine.
 
 ## Authorship
