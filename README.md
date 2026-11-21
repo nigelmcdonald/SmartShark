@@ -56,7 +56,7 @@ Use the **Research** tab, right-click a packet and choose **SmartShark > Researc
 - **Searches** shows each search as it runs. **Sources** lists the pages the findings cite and the others Claude looked at; click one to open it in your browser.
 - Use the box at the bottom to point the research at something ("who runs this server?") or to ask follow-up questions. Claude can search again to answer.
 - Each research uses at most 5 web searches. Anthropic charges $10 per 1,000 searches, so that's at most 5 cents, plus the usual token cost.
-- Web research only works with Anthropic Claude, because the other providers' APIs that SmartShark uses can't search the web. With another provider, the tab says so and offers **Settings**.
+- In this version, web research only works with Anthropic Claude: it uses the web search that Anthropic runs for Claude's API. SmartShark doesn't yet run web searches itself for other providers or local models (some local apps can search the web, but SmartShark doesn't use that). With another provider, the tab says so and offers **Settings**.
 
 ![The Research tab explaining a Plex discovery packet](docs/images/research.jpg)
 

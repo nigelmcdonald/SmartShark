@@ -84,9 +84,10 @@ ResearchPanel::ResearchPanel(QWidget *parent) : QWidget(parent)
     notice_ = new QFrame(this);
     notice_->setFrameShape(QFrame::StyledPanel);
     auto *noticeText = new QLabel(
-        QStringLiteral("<b>Web research needs Anthropic Claude.</b><br>The other providers SmartShark supports "
-                       "cannot search the web through their APIs. Choose Anthropic Claude in Settings to use "
-                       "this tab. The Packet and Capture tabs work with every provider."),
+        QStringLiteral("<b>In this version, web research needs Anthropic Claude.</b><br>It uses the web search "
+                       "that Anthropic runs for Claude. SmartShark doesn't yet search the web for other providers "
+                       "or local models. Choose Anthropic Claude in Settings to use this tab. The Packet and "
+                       "Capture tabs work with every provider."),
         notice_);
     noticeText->setWordWrap(true);
     auto *openSettings = new QPushButton(QStringLiteral("Settings..."), notice_);
